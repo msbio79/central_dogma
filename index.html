@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>DNA 전사 및 번역 시뮬레이션</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <div id="app">
+        <aside id="left-menu">
+            <h1>중심원리 시뮬레이션</h1>
+
+            <section class="panel controls">
+                <div class="mode-selection" style="display: flex; gap: 10px; margin-bottom: 20px;">
+                    <button id="btn-mode-basic" class="action-btn" style="margin-top: 0; padding: 10px;">기본 모드</button>
+                    <button id="btn-mode-adv" class="action-btn outline" style="margin-top: 0; padding: 10px;">고급
+                        모드</button>
+                </div>
+                <h2>시뮬레이션 제어</h2>
+                <div class="control-buttons">
+                    <button id="btn-play-pause">일시정지</button>
+                    <button id="btn-reset" class="danger">초기화</button>
+                </div>
+                <button class="action-btn outline" id="btn-codon" style="margin-top: 15px;">코돈표 보기</button>
+            </section>
+
+            <section class="panel" id="panel-dna">
+                <h2>1. DNA 합성</h2>
+                <p>염기를 클릭하여 DNA 단일 가닥을 만드세요. (최소 9개 이상 권장)</p>
+                <div class="base-buttons">
+                    <button class="base-btn A" data-base="A">A (아데닌)</button>
+                    <button class="base-btn T" data-base="T">T (타이민)</button>
+                    <button class="base-btn G" data-base="G">G (구아닌)</button>
+                    <button class="base-btn C" data-base="C">C (사이토신)</button>
+                </div>
+                <button id="btn-undo-dna" class="action-btn outline"
+                    style="margin-top: 12px; width: 100%; padding: 10px;">↶ 이전 염기 지우기</button>
+                <button class="action-btn" id="btn-complete-dna">합성 완료</button>
+            </section>
+
+            <section class="panel disabled" id="panel-transcription">
+                <h2>2. 전사 (Transcription)</h2>
+                <p>주형으로 사용할 DNA 가닥을 선택하여 mRNA를 합성하세요.</p>
+                <div class="base-buttons" style="margin-top: 10px;">
+                    <button class="action-btn outline" id="btn-transcribe-top"
+                        style="margin-top: 0; font-size: 1rem; padding: 10px;">위쪽 가닥 전사</button>
+                    <button class="action-btn outline" id="btn-transcribe-bottom"
+                        style="margin-top: 0; font-size: 1rem; padding: 10px;">아래쪽 가닥 전사</button>
+                </div>
+                <button id="btn-reset-transcription" class="action-btn outline"
+                    style="margin-top: 10px; width: 100%; padding: 10px; color: #ff6b6b; border-color: #ff6b6b;">⟲ 전사 단계
+                    초기화</button>
+            </section>
+
+            <section class="panel disabled" id="panel-translation">
+                <h2>3. 번역 (Translation)</h2>
+                <p>합성된 mRNA에 리보솜과 tRNA가 결합하여 단백질(폴리펩타이드)을 만듭니다.</p>
+                <button class="action-btn" id="btn-translate">번역 시작 (단백질 합성)</button>
+            </section>
+
+
+        </aside>
+
+        <main id="right-canvas">
+            <canvas id="sim-canvas"></canvas>
+            <div id="zoom-controls">
+                <button id="btn-zoom-in">+</button>
+                <button id="btn-zoom-out">-</button>
+                <button id="btn-zoom-reset">⟲</button>
+            </div>
+            <div id="status-toast" class="toast hidden">상태 메시지</div>
+        </main>
+    </div>
+
+    <!-- Codon Table Modal -->
+    <div id="codon-modal" class="modal hidden">
+        <div class="modal-content">
+            <span class="close-btn" id="btn-close-codon">&times;</span>
+            <h2 style="text-align: center; margin-bottom: 20px; font-size: 1.5rem; color: #fff;">표준 코돈표</h2>
+            <div class="codon-table-container">
+                <table class="codon-table">
+                    <thead>
+                        <tr>
+                            <th>1번째</th>
+                            <th>U</th>
+                            <th>C</th>
+                            <th>A</th>
+                            <th>G</th>
+                            <th>3번째</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <th class="base-col">U</th>
+                            <td>
+                                <div><span class="codon-seq">UUU</span> <span class="aa-name">Phe (페닐알라닌)</span></div>
+                                <div><span class="codon-seq">UUC</span> <span class="aa-name">Phe (페닐알라닌)</span></div>
+                                <div><span class="codon-seq">UUA</span> <span class="aa-name">Leu (류신)</span></div>
+                                <div><span class="codon-seq">UUG</span> <span class="aa-name">Leu (류신)</span></div>
+                            </td>
+                            <td>
+                                <div><span class="codon-seq">UCU</span> <span class="aa-name">Ser (세린)</span></div>
+                                <div><span class="codon-seq">UCC</span> <span class="aa-name">Ser (세린)</span></div>
+                                <div><span class="codon-seq">UCA</span> <span class="aa-name">Ser (세린)</span></div>
+                                <div><span class="codon-seq">UCG</span> <span class="aa-name">Ser (세린)</span></div>
+                            </td>
+                            <td>
+                                <div><span class="codon-seq">UAU</span> <span class="aa-name">Tyr (티로신)</span></div>
+                                <div><span class="codon-seq">UAC</span> <span class="aa-name">Tyr (티로신)</span></div>
+                                <div class="stop"><span class="codon-seq">UAA</span> <span class="aa-name">STOP
+                                        (종결)</span></div>
+                                <div class="stop"><span class="codon-seq">UAG</span> <span class="aa-name">STOP
+                                        (종결)</span></div>
+                            </td>
+                            <td>
+                                <div><span class="codon-seq">UGU</span> <span class="aa-name">Cys (시스테인)</span></div>
+                                <div><span class="codon-seq">UGC</span> <span class="aa-name">Cys (시스테인)</span></div>
+                                <div class="stop"><span class="codon-seq">UGA</span> <span class="aa-name">STOP
+                                        (종결)</span></div>
+                                <div><span class="codon-seq">UGG</span> <span class="aa-name">Trp (트립토판)</span></div>
+                            </td>
+                            <th class="base-col right-base">
+                                <div>U</div>
+                                <div>C</div>
+                                <div>A</div>
+                                <div>G</div>
+                            </th>
+                        </tr>
+                        <tr>
+                            <th class="base-col">C</th>
+                            <td>
+                                <div><span class="codon-seq">CUU</span> <span class="aa-name">Leu (류신)</span></div>
+                                <div><span class="codon-seq">CUC</span> <span class="aa-name">Leu (류신)</span></div>
+                                <div><span class="codon-seq">CUA</span> <span class="aa-name">Leu (류신)</span></div>
+                                <div><span class="codon-seq">CUG</span> <span class="aa-name">Leu (류신)</span></div>
+                            </td>
+                            <td>
+                                <div><span class="codon-seq">CCU</span> <span class="aa-name">Pro (프롤린)</span></div>
+                                <div><span class="codon-seq">CCC</span> <span class="aa-name">Pro (프롤린)</span></div>
+                                <div><span class="codon-seq">CCA</span> <span class="aa-name">Pro (프롤린)</span></div>
+                                <div><span class="codon-seq">CCG</span> <span class="aa-name">Pro (프롤린)</span></div>
+                            </td>
+                            <td>
+                                <div><span class="codon-seq">CAU</span> <span class="aa-name">His (히스티딘)</span></div>
+                                <div><span class="codon-seq">CAC</span> <span class="aa-name">His (히스티딘)</span></div>
+                                <div><span class="codon-seq">CAA</span> <span class="aa-name">Gln (글루타민)</span></div>
+                                <div><span class="codon-seq">CAG</span> <span class="aa-name">Gln (글루타민)</span></div>
+                            </td>
+                            <td>
+                                <div><span class="codon-seq">CGU</span> <span class="aa-name">Arg (아르기닌)</span></div>
+                                <div><span class="codon-seq">CGC</span> <span class="aa-name">Arg (아르기닌)</span></div>
+                                <div><span class="codon-seq">CGA</span> <span class="aa-name">Arg (아르기닌)</span></div>
+                                <div><span class="codon-seq">CGG</span> <span class="aa-name">Arg (아르기닌)</span></div>
+                            </td>
+                            <th class="base-col right-base">
+                                <div>U</div>
+                                <div>C</div>
+                                <div>A</div>
+                                <div>G</div>
+                            </th>
+                        </tr>
+                        <tr>
+                            <th class="base-col">A</th>
+                            <td>
+                                <div><span class="codon-seq">AUU</span> <span class="aa-name">Ile (이소류신)</span></div>
+                                <div><span class="codon-seq">AUC</span> <span class="aa-name">Ile (이소류신)</span></div>
+                                <div><span class="codon-seq">AUA</span> <span class="aa-name">Ile (이소류신)</span></div>
+                                <div class="start"><span class="codon-seq">AUG</span> <span class="aa-name">Met
+                                        (시작/메티오닌)</span></div>
+                            </td>
+                            <td>
+                                <div><span class="codon-seq">ACU</span> <span class="aa-name">Thr (트레오닌)</span></div>
+                                <div><span class="codon-seq">ACC</span> <span class="aa-name">Thr (트레오닌)</span></div>
+                                <div><span class="codon-seq">ACA</span> <span class="aa-name">Thr (트레오닌)</span></div>
+                                <div><span class="codon-seq">ACG</span> <span class="aa-name">Thr (트레오닌)</span></div>
+                            </td>
+                            <td>
+                                <div><span class="codon-seq">AAU</span> <span class="aa-name">Asn (아스파라긴)</span></div>
+                                <div><span class="codon-seq">AAC</span> <span class="aa-name">Asn (아스파라긴)</span></div>
+                                <div><span class="codon-seq">AAA</span> <span class="aa-name">Lys (라이신)</span></div>
+                                <div><span class="codon-seq">AAG</span> <span class="aa-name">Lys (라이신)</span></div>
+                            </td>
+                            <td>
+                                <div><span class="codon-seq">AGU</span> <span class="aa-name">Ser (세린)</span></div>
+                                <div><span class="codon-seq">AGC</span> <span class="aa-name">Ser (세린)</span></div>
+                                <div><span class="codon-seq">AGA</span> <span class="aa-name">Arg (아르기닌)</span></div>
+                                <div><span class="codon-seq">AGG</span> <span class="aa-name">Arg (아르기닌)</span></div>
+                            </td>
+                            <th class="base-col right-base">
+                                <div>U</div>
+                                <div>C</div>
+                                <div>A</div>
+                                <div>G</div>
+                            </th>
+                        </tr>
+                        <tr>
+                            <th class="base-col">G</th>
+                            <td>
+                                <div><span class="codon-seq">GUU</span> <span class="aa-name">Val (발린)</span></div>
+                                <div><span class="codon-seq">GUC</span> <span class="aa-name">Val (발린)</span></div>
+                                <div><span class="codon-seq">GUA</span> <span class="aa-name">Val (발린)</span></div>
+                                <div><span class="codon-seq">GUG</span> <span class="aa-name">Val (발린)</span></div>
+                            </td>
+                            <td>
+                                <div><span class="codon-seq">GCU</span> <span class="aa-name">Ala (알라닌)</span></div>
+                                <div><span class="codon-seq">GCC</span> <span class="aa-name">Ala (알라닌)</span></div>
+                                <div><span class="codon-seq">GCA</span> <span class="aa-name">Ala (알라닌)</span></div>
+                                <div><span class="codon-seq">GCG</span> <span class="aa-name">Ala (알라닌)</span></div>
+                            </td>
+                            <td>
+                                <div><span class="codon-seq">GAU</span> <span class="aa-name">Asp (아스파르트산)</span></div>
+                                <div><span class="codon-seq">GAC</span> <span class="aa-name">Asp (아스파르트산)</span></div>
+                                <div><span class="codon-seq">GAA</span> <span class="aa-name">Glu (글루탐산)</span></div>
+                                <div><span class="codon-seq">GAG</span> <span class="aa-name">Glu (글루탐산)</span></div>
+                            </td>
+                            <td>
+                                <div><span class="codon-seq">GGU</span> <span class="aa-name">Gly (글리신)</span></div>
+                                <div><span class="codon-seq">GGC</span> <span class="aa-name">Gly (글리신)</span></div>
+                                <div><span class="codon-seq">GGA</span> <span class="aa-name">Gly (글리신)</span></div>
+                                <div><span class="codon-seq">GGG</span> <span class="aa-name">Gly (글리신)</span></div>
+                            </td>
+                            <th class="base-col right-base">
+                                <div>U</div>
+                                <div>C</div>
+                                <div>A</div>
+                                <div>G</div>
+                            </th>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+
+    <script src="script.js"></script>
+</body>
+
+</html>
