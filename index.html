@@ -11,6 +11,13 @@
 <body>
     <div id="app">
         <aside id="left-menu">
+            <div class="menu-top-bar">
+                <div class="theme-toggle">
+                    <button id="btn-theme-dark" class="theme-btn active" title="다크 모드">🌙</button>
+                    <button id="btn-theme-light" class="theme-btn" title="라이트 모드">☀️</button>
+                </div>
+                <button id="btn-menu-collapse" class="menu-toggle-btn" title="메뉴 접기">◀</button>
+            </div>
             <h1>중심원리 시뮬레이션</h1>
 
             <section class="panel controls">
@@ -65,6 +72,7 @@
         </aside>
 
         <main id="right-canvas">
+            <button id="btn-menu-expand" class="floating-menu-btn hidden" title="메뉴 열기">▶</button>
             <canvas id="sim-canvas"></canvas>
             <div id="zoom-controls">
                 <button id="btn-zoom-in">+</button>
@@ -79,7 +87,7 @@
     <div id="codon-modal" class="modal hidden">
         <div class="modal-content">
             <span class="close-btn" id="btn-close-codon">&times;</span>
-            <h2 style="text-align: center; margin-bottom: 20px; font-size: 1.5rem; color: #fff;">표준 코돈표</h2>
+            <h2 style="text-align: center; margin-bottom: 20px; font-size: 1.5rem; color: var(--color-text);">표준 코돈표</h2>
             <div class="codon-table-container">
                 <table class="codon-table">
                     <thead>

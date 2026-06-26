@@ -24,6 +24,12 @@ const panelTranslation = document.getElementById('panel-translation');
 const btnPlayPause = document.getElementById('btn-play-pause');
 const btnReset = document.getElementById('btn-reset');
 const toast = document.getElementById('status-toast');
+const btnThemeDark = document.getElementById('btn-theme-dark');
+const btnThemeLight = document.getElementById('btn-theme-light');
+const btnMenuCollapse = document.getElementById('btn-menu-collapse');
+const btnMenuExpand = document.getElementById('btn-menu-expand');
+const leftMenu = document.getElementById('left-menu');
+const app = document.getElementById('app');
 
 function showToast(msg) {
     toast.innerText = msg;
@@ -193,7 +199,14 @@ btnCompleteDna.addEventListener('click', () => {
     state.phase = 'dna-complete';
     panelDna.classList.add('disabled');
     panelTranscription.classList.remove('disabled');
-    state.targetCamera.x = 200;
+    
+    // Auto-center DNA strand
+    const spacing = 100;
+    const strandCenter = ((state.dna1.length - 1) * spacing) / 2;
+    state.targetCamera.x = strandCenter;
+    const strandWidth = state.dna1.length * spacing + 200;
+    state.targetCamera.zoom = Math.min(0.8, (width - 100) / strandWidth);
+    
     showToast("DNA 합성 완료! 전사 단계를 시작할 수 있습니다.");
 });
 
@@ -219,6 +232,14 @@ function startTranscription(strand) {
     state.phase = 'transcription';
     state.templateStrand = strand;
     state.animProgress = 0;
+    
+    // Auto-center DNA strand
+    const spacing = 100;
+    const strandCenter = ((state.dna1.length - 1) * spacing) / 2;
+    state.targetCamera.x = strandCenter;
+    const strandWidth = state.dna1.length * spacing + 200;
+    state.targetCamera.zoom = Math.min(0.8, (width - 100) / strandWidth);
+    
     showToast(`전사 시작: ${strand === 'top' ? '위쪽' : '아래쪽'} 가닥을 주형으로 mRNA를 합성합니다.`);
 }
 
@@ -226,8 +247,21 @@ btnTranslate.addEventListener('click', () => {
     if(state.phase !== 'transcription-complete') return;
     state.phase = 'translation';
     state.animProgress = 0;
-    state.targetCamera.x = 200;
-    state.targetCamera.y = height / 2 + 350; // Move down to see protein translation better
+    
+    // Auto-center DNA/RNA strand horizontally
+    const spacing = 100;
+    const strandCenter = ((state.dna1.length - 1) * spacing) / 2;
+    state.targetCamera.x = strandCenter;
+    
+    // Center vertically to fit DNA (0), RNA (350), and Protein (610)
+    state.targetCamera.y = 300;
+    
+    // Adjust zoom to fit both horizontally and vertically
+    const strandWidth = state.dna1.length * spacing + 200;
+    const horizontalZoom = (width - 100) / strandWidth;
+    const verticalZoom = (height - 100) / 900;
+    state.targetCamera.zoom = Math.min(0.8, horizontalZoom, verticalZoom);
+    
     showToast("번역 시작: 리보솜이 코돈을 읽어 단백질을 합성합니다.");
 });
 
@@ -259,6 +293,51 @@ document.getElementById('btn-close-codon').onclick = () => {
     document.getElementById('codon-modal').classList.add('hidden');
 };
 
+// Theme Toggle Logic
+btnThemeDark.addEventListener('click', () => {
+    document.body.classList.remove('light-mode');
+    btnThemeDark.classList.add('active');
+    btnThemeLight.classList.remove('active');
+    localStorage.setItem('theme', 'dark');
+});
+
+btnThemeLight.addEventListener('click', () => {
+    document.body.classList.add('light-mode');
+    btnThemeLight.classList.add('active');
+    btnThemeDark.classList.remove('active');
+    localStorage.setItem('theme', 'light');
+});
+
+// Load saved theme
+const savedTheme = localStorage.getItem('theme') || 'dark';
+if (savedTheme === 'light') {
+    btnThemeLight.classList.add('active');
+    btnThemeDark.classList.remove('active');
+    document.body.classList.add('light-mode');
+} else {
+    btnThemeDark.classList.add('active');
+    btnThemeLight.classList.remove('active');
+    document.body.classList.remove('light-mode');
+}
+
+// Sidebar Collapse Logic
+btnMenuCollapse.addEventListener('click', () => {
+    leftMenu.classList.add('collapsed');
+    app.classList.add('menu-collapsed');
+    btnMenuExpand.classList.remove('hidden');
+});
+
+btnMenuExpand.addEventListener('click', () => {
+    leftMenu.classList.remove('collapsed');
+    app.classList.remove('menu-collapsed');
+    btnMenuExpand.classList.add('hidden');
+});
+
+// Resize canvas when sidebar transitions end
+leftMenu.addEventListener('transitionend', () => {
+    resize();
+});
+
 // Helper to draw rounded rects
 function roundRect(x, y, w, h, r) {
     if (w < 2 * r) r = w / 2;
@@ -274,11 +353,20 @@ function roundRect(x, y, w, h, r) {
 
 function drawBase(x, y, base, isTop, isRNA = false) {
     const w = 70, h = 50;
-    const c = COLORS[base];
+    const isLight = document.body.classList.contains('light-mode');
+    
+    // Choose dynamic high-contrast base colors for canvas drawing
+    const c = isLight ? {
+        A: { top: '#ff4d6d', bottom: '#c9184a', glow: 'rgba(201, 24, 74, 0.15)' },
+        T: { top: '#3a86ff', bottom: '#0056b3', glow: 'rgba(0, 86, 179, 0.15)' },
+        G: { top: '#2ecc71', bottom: '#27ae60', glow: 'rgba(39, 174, 96, 0.15)' },
+        C: { top: '#f39c12', bottom: '#d35400', glow: 'rgba(211, 84, 0, 0.15)' },
+        U: { top: '#a29bfe', bottom: '#6c5ce7', glow: 'rgba(108, 92, 231, 0.15)' }
+    }[base] : COLORS[base];
     
     // Glow
     ctx.shadowColor = c.glow;
-    ctx.shadowBlur = 15;
+    ctx.shadowBlur = isLight ? 5 : 15;
     
     // Body
     const grad = ctx.createLinearGradient(x, y - h/2, x, y + h/2);
@@ -303,7 +391,7 @@ function drawBase(x, y, base, isTop, isRNA = false) {
     ctx.fillText(base, x, y);
     
     // Backbone Line
-    ctx.strokeStyle = isRNA ? '#D980FA' : 'rgba(255,255,255,0.3)';
+    ctx.strokeStyle = isRNA ? '#D980FA' : (isLight ? 'rgba(0,0,0,0.2)' : 'rgba(255,255,255,0.3)');
     ctx.lineWidth = 6;
     ctx.lineCap = 'round';
     const bY = isTop ? y - h/2 - 15 : y + h/2 + 15;
@@ -347,7 +435,7 @@ function update(dt) {
         if (state.mode === 'advanced' && state.templateStrand === 'top') {
             px = (state.dna1.length - state.animProgress) * 100 + 100;
         }
-        state.targetCamera.x = px;
+        // Camera remains stationary in the center of the DNA strand
 
         if(Math.floor(state.animProgress) > state.dna2.length + 1) {
             state.phase = 'transcription-complete';
@@ -375,7 +463,7 @@ function update(dt) {
         if (state.mode === 'advanced' && state.templateStrand === 'top') {
             rx = (state.dna1.length - 1 - state.animProgress) * 100;
         }
-        state.targetCamera.x = rx + 100;
+        // Camera remains stationary in the center of the DNA/RNA strand
 
         if(currentCodonIdx * 3 >= state.mrna.length + 3) { // Let it run off
             state.phase = 'translation-complete';
@@ -411,9 +499,10 @@ function render() {
     const dnaY = 0;
     
     // Draw H-Bonds background
+    const isLight = document.body.classList.contains('light-mode');
     for(let i=0; i<state.dna1.length; i++) {
         const x = i * spacing;
-        ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+        ctx.strokeStyle = isLight ? 'rgba(0,0,0,0.15)' : 'rgba(255,255,255,0.15)';
         ctx.lineWidth = 4;
         ctx.setLineDash([8, 8]);
         ctx.beginPath();
@@ -461,10 +550,10 @@ function render() {
             ctx.scale(-1, 1);
             ctx.translate(-px, 0);
         }
-        ctx.fillStyle = 'rgba(245, 158, 11, 0.15)'; // Orange tint
-        ctx.strokeStyle = 'rgba(245, 158, 11, 0.6)';
+        ctx.fillStyle = isLight ? 'rgba(217, 119, 6, 0.08)' : 'rgba(245, 158, 11, 0.15)'; // Orange tint
+        ctx.strokeStyle = isLight ? 'rgba(217, 119, 6, 0.8)' : 'rgba(245, 158, 11, 0.6)';
         ctx.lineWidth = 4;
-        ctx.shadowColor = 'rgba(245, 158, 11, 0.3)';
+        ctx.shadowColor = isLight ? 'rgba(217, 119, 6, 0.15)' : 'rgba(245, 158, 11, 0.3)';
         ctx.shadowBlur = 30;
         
         ctx.beginPath();
@@ -477,7 +566,7 @@ function render() {
         ctx.restore(); // Remove horizontal flip for text
         
         ctx.save();
-        ctx.fillStyle = '#FBBF24';
+        ctx.fillStyle = isLight ? '#D97706' : '#FBBF24';
         ctx.shadowBlur = 0;
         ctx.font = 'bold 26px Noto Sans KR';
         ctx.textAlign = 'center';
@@ -515,7 +604,7 @@ function render() {
     // Draw Codon Grouping (Dashed Box)
     if(state.phase === 'translation' || state.phase === 'translation-complete') {
         ctx.save();
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+        ctx.strokeStyle = isLight ? 'rgba(0, 0, 0, 0.25)' : 'rgba(255, 255, 255, 0.3)';
         ctx.lineWidth = 3;
         ctx.setLineDash([8, 8]);
         
@@ -532,7 +621,7 @@ function render() {
                 ctx.stroke();
                 
                 // Label "코돈"
-                ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+                ctx.fillStyle = isLight ? 'rgba(0, 0, 0, 0.5)' : 'rgba(255, 255, 255, 0.5)';
                 ctx.font = 'bold 16px Noto Sans KR';
                 ctx.textAlign = 'center';
                 ctx.fillText('코돈', startX + boxWidth/2, mrnaBaseY - 65);
@@ -557,8 +646,8 @@ function render() {
 
             // Large Subunit (Top)
             const gradL = ctx.createRadialGradient(rx - 100, transY - 80, 20, rx - 50, transY - 60, 250);
-            gradL.addColorStop(0, '#4b6584');
-            gradL.addColorStop(1, '#2d3436');
+            gradL.addColorStop(0, isLight ? '#57606f' : '#4b6584');
+            gradL.addColorStop(1, isLight ? '#2f3542' : '#2d3436');
             ctx.fillStyle = gradL;
             ctx.beginPath();
             ctx.ellipse(rx - spacing, transY - 70, 220, 110, 0, 0, Math.PI * 2);
@@ -566,14 +655,14 @@ function render() {
 
             // Small Subunit (Bottom)
             const gradS = ctx.createRadialGradient(rx - 100, transY + 60, 10, rx - 50, transY + 60, 180);
-            gradS.addColorStop(0, '#a5b1c2');
-            gradS.addColorStop(1, '#4b6584');
+            gradS.addColorStop(0, isLight ? '#a4b0be' : '#a5b1c2');
+            gradS.addColorStop(1, isLight ? '#747d8c' : '#4b6584');
             ctx.fillStyle = gradS;
             ctx.beginPath();
             ctx.ellipse(rx - spacing, transY + 60, 160, 60, 0, 0, Math.PI * 2);
             ctx.fill();
             
-            ctx.fillStyle = '#fff';
+            ctx.fillStyle = isLight ? '#2f3542' : '#fff';
             ctx.font = 'bold 24px Noto Sans KR';
             ctx.fillText('리보솜 대단위체', rx - spacing, transY - 110);
             ctx.fillText('리보솜 소단위체', rx - spacing, transY + 140);
@@ -593,7 +682,7 @@ function render() {
             }
             const px = visualIdx * spacing;
             const prevX = prevVisualIdx * spacing;
-            ctx.strokeStyle = 'rgba(255,255,255,0.7)';
+            ctx.strokeStyle = isLight ? 'rgba(0,0,0,0.4)' : 'rgba(255,255,255,0.7)';
             ctx.lineWidth = 8;
             ctx.beginPath();
             ctx.moveTo(prevX, pStartY);
@@ -639,14 +728,14 @@ function render() {
             // tRNA for the current codon being read
             if(state.phase === 'translation' && i === state.protein.length - 1) {
                 ctx.save();
-                ctx.strokeStyle = '#10ac84';
+                ctx.strokeStyle = isLight ? '#0c8569' : '#10ac84';
                 ctx.lineWidth = 4;
                 ctx.beginPath();
-                ctx.moveTo(px, pStartY - 80); // Top of doubled amino acid
+                ctx.moveTo(px, pStartY - 80); // Bottom of amino acid is aligned
                 ctx.lineTo(px, transY + 30);  // Bottom of RNA
                 ctx.stroke();
 
-                ctx.fillStyle = '#1dd1a1';
+                ctx.fillStyle = isLight ? '#10ac84' : '#1dd1a1';
                 roundRect(px - 30, transY + 60, 60, 60, 10);
                 ctx.fill();
                 ctx.fillStyle = '#fff';
@@ -677,7 +766,7 @@ function render() {
         const screenDnaTopY = (dnaY - 50 - state.camera.y) * state.camera.zoom + height/2;
         const screenDnaBotY = (dnaY + 50 - state.camera.y) * state.camera.zoom + height/2;
         
-        ctx.fillStyle = '#fff';
+        ctx.fillStyle = isLight ? '#2f3542' : '#fff';
         ctx.textAlign = 'center';
         
         if(screenDnaTopY > -50 && screenDnaTopY < height + 50) {
@@ -710,14 +799,14 @@ function render() {
     
     // Tag drawing helper
     function drawTag(text, y) {
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+        ctx.fillStyle = isLight ? 'rgba(0, 0, 0, 0.08)' : 'rgba(0, 0, 0, 0.5)';
         ctx.beginPath();
         ctx.roundRect(20, y - 20, 100, 40, 8);
         ctx.fill();
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+        ctx.strokeStyle = isLight ? 'rgba(0, 0, 0, 0.15)' : 'rgba(255, 255, 255, 0.2)';
         ctx.lineWidth = 1;
         ctx.stroke();
-        ctx.fillStyle = '#7BED9F';
+        ctx.fillStyle = isLight ? '#10ac84' : '#7BED9F';
         ctx.fillText(text, 35, y);
     }
     
